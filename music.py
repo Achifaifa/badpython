@@ -286,7 +286,7 @@ for track in song:
 				for x in xrange(int(duration), int(samples)):
 					data[trackPos].append(0.0)
 			notePos+= 1
-			patternPos+=1 1
+			patternPos+=1
 	trackPos+=1
 
 lenData = 0
