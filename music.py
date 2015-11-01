@@ -1,13 +1,12 @@
 import math
-import pyaudio
-import sys
 import os
 import random
+import sys
+from pyaudio import PyAudio
 
 freqPower = 1.059463094 # twelfth root of 2
 bpm = 138 # quarter notes per minute
 quarterLength = 60.0 / bpm
-PyAudio = pyaudio.PyAudio
 RATE = 11050
 songRaw = ''
 song = {}
@@ -66,7 +65,7 @@ mainLengths = [
 	mainDurations[3], # 3
 	[1, 1, 1, 1], # 4
 ]
-main = [1,\
+main = [1,
 		0, 2, 3, 0, 2, 4,
 		0, 2, 3, 0, 2, 4,]
 buildSongData("main", main, mainNotes, mainDurations, mainLengths)
@@ -137,10 +136,10 @@ bassLengths = [
 	[0.5, 0.25, 0.5, 0.25, 0.25, 0.25], # 5
 	[0.5, 0.25, 0.5, 0.25, 0.25, 0.25], # 6
 ]
-bass = [0, 1, 1, 1, 2, 1, 1, 1, 3, 1, 1, 1, 2, 1, 1, 1, 3,\
-		1, 1, 1, 2, 4, 4, 5, 6,\
-		1, 1, 1, 2, 4, 4, 5, 6,\
-		1, 1, 1, 2, 4, 4, 5, 6,\
+bass = [0, 1, 1, 1, 2, 1, 1, 1, 3, 1, 1, 1, 2, 1, 1, 1, 3,
+		1, 1, 1, 2, 4, 4, 5, 6,
+		1, 1, 1, 2, 4, 4, 5, 6,
+		1, 1, 1, 2, 4, 4, 5, 6,
 		1, 1, 1, 2, 4, 4, 5, 6,]
 buildSongData("bass", bass, bassNotes, bassDurations, bassLengths)
 
@@ -163,8 +162,8 @@ synthLengths = [
 	synthDurations[2],
 	synthDurations[3],
 ]
-synth = [0,\
-		1, 1, 1, 2, 1, 1, 1, 3, 1, 1, 1, 2, 1, 1, 1, 3,\
+synth = [0,
+		1, 1, 1, 2, 1, 1, 1, 3, 1, 1, 1, 2, 1, 1, 1, 3,
 		1, 1, 1, 2, 1, 1, 1, 3, 1, 1, 1, 2, 1, 1, 1, 3,]
 buildSongData("synth", synth, synthNotes, synthDurations, synthLengths)
 
@@ -190,7 +189,7 @@ secLengths = [
 	mainDurations[3], # 3
 	[1, 1, 1, 1], # 4
 ]
-sec = [1,\
+sec = [1,
 		0, 2, 3, 0, 2, 4,]
 buildSongData("sec", sec, secNotes, secDurations, secLengths)
 
@@ -207,11 +206,11 @@ guitarLengths = [
 	[96], # 0
 	[8, 4, 2, 2], # 1
 ]
-guitar = [0,\
+guitar = [0,
 			1, 1]
 buildSongData("guitar", guitar, guitarNotes, guitarDurations, guitarLengths)
 
-data = [[], [], [], [], [], [], [], []]
+data = [[] for i in range(8)]
 
 p = PyAudio()
 
@@ -255,16 +254,16 @@ for track in song:
 							if (positiveSamplesBoundary < positiveSamplesPerPeriod):
 								if track == "synth":
 									data[trackPos].append(0.2)
-									positiveSamplesBoundary = positiveSamplesBoundary + 0.25
+									positiveSamplesBoundary+=0.25
 								elif track == "guitar":
 									data[trackPos].append(0.5)
-									positiveSamplesBoundary = positiveSamplesBoundary + 0.85
+									positiveSamplesBoundary+=0.85
 								elif track == "bass":
 									data[trackPos].append(0.8)
-									positiveSamplesBoundary = positiveSamplesBoundary + 0.75
+									positiveSamplesBoundary+=0.75
 								else:
 									data[trackPos].append(0.8)
-									positiveSamplesBoundary = positiveSamplesBoundary + 1
+									positiveSamplesBoundary+=1
 							else:
 								if track == "synth":
 									data[trackPos].append(-0.2)
@@ -281,33 +280,31 @@ for track in song:
 								data[trackPos].append(-0.5)
 							else:
 								data[trackPos].append(-0.8)
-							periodBoundary = periodBoundary + period + t
+							periodBoundary+=(period+t)
 							positiveSamplesBoundary = 0
 			if samples > duration:
 				for x in xrange(int(duration), int(samples)):
 					data[trackPos].append(0.0)
-			notePos = notePos + 1
-			patternPos = patternPos + 1
-	trackPos = trackPos + 1
+			notePos+= 1
+			patternPos+=1
+	trackPos+=1
 
 lenData = 0
-for x in xrange(len(data)):
-	if len(data[x]) > lenData:
-		lenData = len(data[x])
+for x in data:
+  lenData = len(x) if len(x) > lenData else lenData
 
-f = open('testmusica2.wav', 'w');
-for x in xrange(lenData):
-	sum = 0.0
-	for y in xrange(len(data)):
-		try:
-			sum += data[y][x]
-		except IndexError:
-			sum = sum
-	sample = min(int(((max(min(sum/len(data), 1.0), -1.0)) + 1.0) * 128.0), 255)
-	songRaw += chr(sample)
-	f.write(chr(sample))
+with open('testmusica2.wav', 'w') as f:
+  for x in xrange(lenData):
+	  sum = 0.0
+	  for y in xrange(len(data)):
+		  try:
+			  sum += data[y][x]
+		  except IndexError:
+			  pass
+	  sample = min(int(((max(min(sum/len(data), 1.0), -1.0)) + 1.0) * 128.0), 255)
+	  songRaw += chr(sample)
+	  f.write(chr(sample))
 
-f.close()
 print "Music OK"
 for DISCARD in xrange(1):
 	stream.write(songRaw)
