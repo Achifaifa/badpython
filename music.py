@@ -5,21 +5,26 @@ import sys
 from pyaudio import PyAudio
 
 freqPower = 1.059463094 # twelfth root of 2
+twopi = 6.283185307
 bpm = 138 # quarter notes per minute
 quarterLength = 60.0 / bpm
-RATE = 11050
+RATE = 11025
 songRaw = ''
 song = {}
+sinData = []
+X = xrange
 
 ### BASS DRUM ###
 bdNotes = [
-	[-18, -18, -18, -18, -18, -18, -18], # 0
-	[-18, -18, -18, -18, -18], # 1
-	[-18, -18, -18, -18], # 2
-	[-18, -18, -18, -18], # 3
-	[-18, -18, -18, -18, -18, -18, -18, -18], # 4
-	[-18, -18, -18, -18, -18], # 5
-	[-18, -99, -18, -18], # 6
+	[-24, -24, -24, -24, -24, -24, -24], # 0
+	[-24, -24, -24, -24, -24], # 1
+	[-24, -24, -24, -24], # 2
+	[-24, -24, -24, -24], # 3
+	[-24, -24, -24, -24, -24, -24, -24, -24], # 4
+	[-24, -24, -24, -24, -24], # 5
+	[-24, -99, -24, -24], # 6
+	[-24], # 7
+	[-24] # 8
 ]
 bdDurations = [
 	[1, 1, 1, 0.25, 0.25, 0.25, 0.25], # 0
@@ -29,6 +34,8 @@ bdDurations = [
 	[1, 1, 1.0/3, 1.0/3, 1.0/3, 1.0/3, 1.0/3, 1.0/3], # 4
 	[1, 1, 0.5, 0.5, 1], # 5
 	[1, 61, 1, 1], # 6
+	[1], # 7
+	[1], # 8
 ]
 bdLengths = [
 	bdDurations[0],
@@ -38,6 +45,8 @@ bdLengths = [
 	bdDurations[4],
 	bdDurations[5],
 	[1, 61, 1, 1],
+	[32],
+	[16]
 ]
 bd = [0, 1, 0, 1, 0, 1, 0, 2,
 		3, 1, 3, 1, 3, 1, 3, 4,
@@ -46,7 +55,12 @@ bd = [0, 1, 0, 1, 0, 1, 0, 2,
 		3, 1, 3, 5, 3, 1, 3, 4, 3, 1, 3, 5, 3, 1, 3, 4,
 		6,
 		3, 1, 3, 1, 3, 1, 3, 4,
-		]
+		3, 1, 3, 5, 3, 1, 3, 4,
+		3, 1, 3, 3, 3, 1, 3, 3,
+		3, 1, 3, 5, 3, 1, 3, 4,
+		3, 1, 3, 5, 3, 1, 3, 3,
+		7, 7, 8
+]
 
 ### MAIN VOICE ###
 mainNotes = [
@@ -61,6 +75,11 @@ mainNotes = [
 	[-1, 1], # 8
 	[4, 6, 1, -1, 1, 6, 8, 9, 8, 6, 4, 1, -1, 1, -1, -3, -4, -8, -6], # 9
 	[-99], # 10
+	[2, 5], # 11
+	[5, 7, 2, 0, 2], # 12
+	[0, 2], # 13
+	[0, -2, -3, -7, -5, -7, -5, -3, -2, 0, 2, -5], # 14
+	[7, 9, 10, 9, 7, 5, 2, 0, 2, 0, -2, -3, -7, -5] # 15
 ]
 mainDurations = [
 	[0.5, 0.5, 0.5, 0.5, 1, 0.5, 0.5, 1, 1, 0.5, 0.5, 0.5, 0.5], # 0
@@ -74,6 +93,11 @@ mainDurations = [
 	[0.5, 0.5], # 8
 	[0.5, 0.5, 0.5, 0.5, 1, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 1, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 1], # 9
 	[33], # 10
+	[0.5, 0.5], # 11
+	[0.5, 0.5, 0.5, 0.5, 1], # 12
+	[0.5, 0.5], # 13
+	[0.5, 0.5, 0.5, 0.5, 1, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 1], # 14
+	[0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 1, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 2], # 15
 ]
 mainLengths = [
 	mainDurations[0], # 0
@@ -87,6 +111,11 @@ mainLengths = [
 	[0.5, 0.5], # 8
 	mainDurations[9], # 9
 	[33], # 10
+	[0.5, 0.5], # 11
+	mainDurations[12], # 12
+	[0.5, 0.5], # 13
+	mainDurations[14], # 14
+	mainDurations[15] # 15
 ]
 main = [1,
 		0, 2, 3, 0, 2, 4,
@@ -99,7 +128,14 @@ main = [1,
 		5, 5, 6, 8,
 		5, 5, 6, 7,
 		5, 9,
-		10,]
+		10,
+		0, 2, 3, 0, 2, 4,
+		0, 2, 3, 0, 2, 4,
+		5, 5, 6, 7,
+		5, 5, 6, 8,
+		5, 5, 6, 7,
+		5, 9, 11,
+		12, 13, 12, 13, 14, 11, 12, 13, 12, 13, 14, 13, 12, 13, 12, 13, 14, 13, 12, 13, 12, 15]
 
 ### CRASH CYMBAL ###
 crashNotes = [
@@ -111,6 +147,7 @@ crashNotes = [
 	[0, 0, 0, 0], # 5
 	[0, 0, 0, 0, 0, 0, 0, 0], # 6
 	[0, -99, 0, 0], # 7
+	[0, -99, 0, 0, 0, 0, 0, 0], # 8
 ]
 crashDurations = [
 	[3, 28], # 0
@@ -121,6 +158,7 @@ crashDurations = [
 	[1, 1, 1, 1], # 5
 	[1, 1, 1.0/3, 1.0/3, 1.0/3, 1.0/3, 1.0/3, 1.0/3], # 6
 	[3, 58, 1, 1], # 7
+	[3, 10, 1.0/3, 1.0/3, 1.0/3, 1.0/3, 1.0/3, 1.0/3], # 8
 ]
 crashLengths = [
 	[4, 28], # 0
@@ -131,11 +169,17 @@ crashLengths = [
 	[1, 1, 1, 1], # 5
 	crashDurations[6], # 6
 	[4, 58, 1, 1], # 7
+	[4, 10, 1.0/3, 1.0/3, 1.0/3, 1.0/3, 1.0/3, 1.0/3], # 8
 ]
 crash = [0, 1, 1, 3, 4,
 		3, 3, 5, 5, 5, 5, 5, 5, 5, 6,
 		7,
-		1,]
+		1,
+		3, 8,
+		3, 8,
+		3, 3,
+		5, 5, 5, 5, 5, 5, 5, 5,
+		0, 0, 3]
 
 ### REVERSE CRASH CYMBAL ###
 revCrashNotes = [
@@ -145,6 +189,8 @@ revCrashNotes = [
 	[-99, 0, -99], # 3
 	[-99, 0], # 4
 	[-99], # 5
+	[-99, 0], # 6
+	[-99, 0, -99] # 7
 ]
 revCrashDurations = [
 	[24], # 0
@@ -153,6 +199,8 @@ revCrashDurations = [
 	[28, 2, 2], # 3
 	[30, 2], # 4
 	[32], # 5
+	[24, 8], # 6
+	[24, 4, 4] # 7
 ]
 revCrashLengths = [
 	[24], # 0
@@ -161,10 +209,14 @@ revCrashLengths = [
 	[28, 2, 2], # 3
 	[30, 2], # 4
 	[32], # 5
+	[24, 8], # 6
+	[24, 4, 4] # 7
 ]
-revCrash = [0, 1, 2, 3, 3,
+revCrash = [0, 1, 2, 3, 7,
 			4, 4,
-			5, 5,]
+			5, 5,
+			3, 5, 
+			5, 5, 5, 5, 6]
 
 ### BASS ###
 bassNotes = [
@@ -179,6 +231,10 @@ bassNotes = [
 	[-34, -11, -34, -11, -34, -32, -11, -32, -11, -32, -30, -11, -30, -11, -30, -11, -30, -30, -11, -30, -11, -11, -30, -11, -30, -11, -30, -13, -30, -13, -30], # 8
 	[-34, -11, -34, -11, -34, -32, -11, -32, -11, -32, -30, -11, -30, -11, -30, -11, -30, -99, -25, -27], # 9
 	[-25, -15, -13, -27, -18, -15], # 10
+	[-33, -10, -33, -10, -33, -31, -10, -31, -10, -31, -29, -10, -29, -10, -29, -10, -29, -29, -10, -29, -10, -10, -29, -10, -29, -10, -29, -10, -29, -10, -29], # 11
+	[-33, -10, -33, -10, -33, -31, -10, -31, -10, -31, -29, -10, -29, -10, -29, -10, -29, -29, -10, -29, -10, -10, -29, -10, -29, -10, -10, -10, -10, -10, -10], # 12
+	[-33, -31, -29], # 13
+	[-29] # 14
 ]
 bassDurations = [
 	[32], # 0
@@ -192,6 +248,10 @@ bassDurations = [
 	[1, 0.25, 1.25, 0.25, 1.25, 1, 0.25, 1.25, 0.25, 1.25, 1, 0.25, 1.25, 0.25, 0.75, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.5, 0.25, 0.5, 0.25, 0.25, 0.25, 0.25], # 8
 	[1, 0.25, 1.25, 0.25, 1.25, 1, 0.25, 1.25, 0.25, 1.25, 1, 0.25, 1.25, 0.25, 0.75, 0.25, 0.25, 2, 1, 1], # 9
 	[1.0/3, 1.0/3, 1.0/3, 1.0/3, 1.0/3, 1.0/3], # 10
+	[1, 0.25, 1.25, 0.25, 1.25, 1, 0.25, 1.25, 0.25, 1.25, 1, 0.25, 1.25, 0.25, 0.75, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.5, 0.25, 0.5, 0.25, 0.25, 0.25, 0.25], # 11
+	[1, 0.25, 1.25, 0.25, 1.25, 1, 0.25, 1.25, 0.25, 1.25, 1, 0.25, 1.25, 0.25, 0.75, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25], # 12
+	[4, 4, 8], # 13
+	[8] # 14
 ]
 bassLengths = [
 	[32], # 0
@@ -205,6 +265,10 @@ bassLengths = [
 	bassDurations[8], # 8
 	bassDurations[9], # 9
 	bassDurations[10], # 10
+	bassDurations[11], # 11
+	[1, 0.25, 1.25, 0.25, 1.25, 1, 0.25, 1.25, 0.25, 1.25, 1, 0.25, 1.25, 0.25, 0.75, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 1.0/3, 1.0/3, 1.0/3, 1.0/3, 1.0/3, 1.0/3], # 12
+	[4, 4, 8], # 13
+	[18] # 14
 ]
 bass = [0, 1, 1, 1, 2, 1, 1, 1, 3, 1, 1, 1, 2, 1, 1, 1, 3,
 		1, 1, 1, 2, 4, 4, 5, 6,
@@ -213,7 +277,11 @@ bass = [0, 1, 1, 1, 2, 1, 1, 1, 3, 1, 1, 1, 2, 1, 1, 1, 3,
 		1, 1, 1, 2, 4, 4, 5, 6,
 		4, 4, 5, 5, 1, 1, 1, 1, 4, 4, 5, 5, 1, 1, 1, 1, 4, 4, 5, 5, 1, 1, 1, 1, 4, 4, 5, 5, 1, 1, 1, 1,
 		7, 7, 8, 9,
-		1, 1, 1, 2, 1, 1, 1, 3, 1, 1, 1, 2, 1, 1, 1, 10,]
+		1, 1, 1, 2, 1, 1, 1, 3, 1, 1, 1, 2, 1, 1, 1, 10,
+		1, 1, 1, 2, 4, 4, 5, 6, 1, 1, 1, 2, 4, 4, 5, 6,
+		1, 1, 1, 2, 4, 4, 5, 6, 1, 1, 1, 2, 4, 4, 5, 6,
+		4, 4, 5, 5, 1, 1, 1, 1, 4, 4, 5, 5, 1, 1, 1, 1, 4, 4, 5, 5, 1, 1, 1, 1, 4, 4, 5, 5, 1, 1, 1, 1,
+		11, 12, 13, 13, 14]
 
 ### SYNTH ###
 synthNotes = [
@@ -226,6 +294,9 @@ synthNotes = [
 	[6, 16, 18, 18, 16, 18, 25, 9, 21, 23], # 6
 	[6, 16, 18, 18, 16, 18, 30, 21, 23, 9, 18, 21], # 7
 	[11, 21, 23, 9, 18, 21], # 8
+	[7, 17, 19, 19, 17, 19], # 9
+	[7, 19, 22, 10, 22, 24], # 10
+	[12, 22, 24, 10, 19, 22] # 11
 ]
 synthDurations = [
 	[64], # 0
@@ -237,6 +308,9 @@ synthDurations = [
 	[0.5, 0.25, 0.375, 0.25, 0.25, 0.25, 1, 0.5, 0.25, 0.25], # 6
 	[0.5, 0.25, 0.375, 0.25, 0.25, 0.25, 0.5, 0.25, 0.25, 0.5, 0.25, 0.25], # 7
 	[1.0/3, 1.0/3, 1.0/3, 1.0/3, 1.0/3, 1.0/3], # 8
+	[0.5, 0.25, 0.375, 0.25, 0.25, 0.25], # 9
+	[0.5, 0.25, 0.25, 0.5, 0.25, 0.25], # 10
+	[0.5, 0.25, 0.25, 0.5, 0.25, 0.25], # 11
 ]
 synthLengths = [
 	[64], # 0
@@ -248,13 +322,21 @@ synthLengths = [
 	[0.5, 0.25, 0.5, 0.25, 0.25, 0.25, 1, 0.5, 0.25, 0.25], # 6
 	[0.5, 0.25, 0.5, 0.25, 0.25, 0.25, 0.5, 0.25, 0.25, 0.5, 0.25, 0.25], # 7
 	synthDurations[8],
+	[0.5, 0.25, 0.5, 0.25, 0.25, 0.25], # 9
+	synthDurations[10],
+	synthDurations[11],
 ]
 synth = [0,
 		4, 1, 2, 4, 1, 3, 4, 1, 2, 4, 1, 3,
 		4, 1, 2, 4, 1, 3, 4, 1, 2, 4, 1, 3,
 		4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
 		5, 6, 5, 7, 5, 6, 5, 7, 5, 6, 5, 4, 5, 6, 5, 1, 2,
-		4, 1, 2, 4, 1, 3, 4, 1, 2, 4, 1, 8]
+		4, 1, 2, 4, 1, 3, 4, 1, 2, 4, 1, 8,
+		4, 1, 2, 4, 1, 3, 4, 1, 2, 4, 1, 3,
+		4, 1, 2, 4, 1, 3, 4, 1, 2, 4, 1, 3,
+		4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
+		9, 9, 9, 10, 9, 9, 9, 11, 9, 9, 9, 10, 9, 9, 9, 11,
+		9, 9, 9, 10, 9, 9, 9, 11, 9, 9, 9, 10, 9, 9, 9, 11]
 
 ### SECONDARY VOICE ###
 secNotes = [
@@ -269,6 +351,11 @@ secNotes = [
 	[-4, -3], # 8
 	[-1, 1, -3, -4, -3, 1, 4, 6, 4, 1, -1, -3, -4, -3, -4, -6, -8, -13, -11], # 9
 	[-99], # 10
+	[-2, 2], # 11
+	[0, 2, -2, -3, -2], # 12
+	[-3, -2], # 13
+	[-3, -5, -7, -12, -10, -12, -10, -7, -5, -3, -2, -10], # 14
+	[2, 5, 7, 5, 2, 0, -2, -3, -2, -3, -5, -7, -12, -10] # 15
 ]
 secDurations = [
 	[0.5, 0.5, 0.5, 0.5, 1, 0.5, 0.5, 1, 1, 0.5, 0.5, 0.5, 0.5], # 0
@@ -282,6 +369,11 @@ secDurations = [
 	mainDurations[8],
 	mainDurations[9],
 	[33], # 10
+	[0.5, 0.5], # 11
+	mainDurations[12], # 12
+	[0.5, 0.5], # 13
+	mainDurations[14], # 14
+	mainDurations[15] # 15
 ]
 secLengths = [
 	mainDurations[0], # 0
@@ -295,6 +387,11 @@ secLengths = [
 	mainDurations[8],
 	mainDurations[9],
 	[32], # 10
+	[0.5, 0.5], # 11
+	mainDurations[12], # 12
+	[0.5, 0.5], # 13
+	mainDurations[14], # 14
+	mainDurations[15] # 15
 ]
 sec = [1,
 		0, 2, 3, 0, 2, 4,
@@ -306,7 +403,14 @@ sec = [1,
 		5, 5, 6, 8,
 		5, 5, 6, 7,
 		5, 9,
-		10,]
+		10,
+		0, 2, 3, 0, 2, 4,
+		0, 2, 3, 0, 2, 4,
+		5, 5, 6, 7,
+		5, 5, 6, 8,
+		5, 5, 6, 7,
+		5, 9, 11,
+		12, 13, 12, 13, 14, 11, 12, 13, 12, 13, 14, 13, 12, 13, 12, 13, 14, 13, 12, 13, 12, 15]
 
 ### GUITAR ###
 guitarNotes = [
@@ -318,6 +422,8 @@ guitarNotes = [
 	[-18, -18, -15, -99, -15, -13], # 5
 	[-99, -15, -13, -99, -18, -15], # 6
 	[-99, -15, -13, -99, -18, -15], # 7
+	[-12, -10, -12, -10, -12, -10], # 8
+	[-21, -19, -17] # 9
 ]
 guitarDurations = [
 	[96], # 0
@@ -328,6 +434,8 @@ guitarDurations = [
 	[0.5, 0.25, 0.25, 0.5, 0.25, 0.25], # 5
 	[0.5, 0.25, 0.25, 0.5, 0.25, 0.25], # 6
 	[1.0/3, 1.0/3, 1.0/3, 1.0/3, 1.0/3, 1.0/3], # 7
+	[0.25, 0.25, 0.25, 0.25, 0.25, 0.25], # 8
+	[4, 4, 8] # 9
 ]
 guitarLengths = [
 	[96], # 0
@@ -338,12 +446,18 @@ guitarLengths = [
 	guitarDurations[5],
 	guitarDurations[6],
 	guitarDurations[7],
+	[0.25, 0.5, 0.25, 0.5, 0.25, 0.25], # 8
+	[4, 4, 8] # 9
 ]
 guitar = [0,
 			1, 1,
 			2, 2, 2, 2,
 			2, 2, 2, 3,
-			4, 4, 4, 5, 4, 4, 4, 6, 4, 4, 4, 5, 4, 4, 4, 7]
+			4, 4, 4, 5, 4, 4, 4, 6, 4, 4, 4, 5, 4, 4, 4, 7,
+			1, 1, 1, 1,
+			2, 2, 2, 2,
+			9, 9, 9, 9,
+			8, 8, 8, 8, 8, 8, 8, 8]
 
 song["bd"] = [bd, bdNotes, bdDurations, bdLengths]
 song["main"] = [main, mainNotes, mainDurations, mainLengths]
@@ -353,7 +467,7 @@ song["bass"] = [bass, bassNotes, bassDurations, bassLengths]
 song["synth"] = [synth, synthNotes, synthDurations, synthLengths]
 song["sec"] = [sec, secNotes, secDurations, secLengths]
 song["guitar"] = [guitar, guitarNotes, guitarDurations, guitarLengths]
-data = [[] for i in range(8)]
+data = [[] for i in X(8)]
 
 p = PyAudio()
 
@@ -364,13 +478,14 @@ stream = p.open(format =
 				output = True)
 os.system("clear")
 
-def getNoteFreq(diff):
-	freq = 440 * pow(freqPower, diff)
-	return freq
-
 print "Rendering music..."
+
+for i in X(RATE):
+	sinData.append(math.sin(twopi*(float(i)/RATE)))
+
 trackPos = 0
 for track in song:
+	print "Track"
 	for pattern in song[track][0]:
 		patternPos = 0
 		notePos = 0
@@ -378,62 +493,42 @@ for track in song:
 			samples = int(quarterLength * song[track][3][pattern][notePos] * RATE);
 			duration = int(quarterLength * song[track][2][pattern][notePos] * RATE);
 			if note != -99:
-				freq = getNoteFreq(note)
-				period = RATE / freq
-				periodBoundary = period
-				positiveSamplesPerPeriod = period / 2
-				positiveSamplesBoundary = 0
-			t = 0
-			for x in xrange(int(duration)):
+				freq = 440 * pow(1.059463094, note)
+#			t = 0
+			for x in X(int(duration)):
 				if note == -99:
 					data[trackPos].append(0.0)
 				else:
+					sampleData = 0.0
 					if track == "crash":
 						data[trackPos].append(random.uniform(0, 0.8) * ((duration - float(x)) / duration))
 					elif track == "revCrash":
 						data[trackPos].append(random.uniform(0, 0.8) * (float(x) / duration))
+					elif track == "bd":
+						data[trackPos].append(math.sin(freq/math.sqrt(float(x)/(500+i/100)+0.4)))
 					else:
-						if x < periodBoundary - 1:
-							if (positiveSamplesBoundary < positiveSamplesPerPeriod):
-								if track == "synth":
-									data[trackPos].append(0.2)
-									positiveSamplesBoundary += 0.25
-								elif track == "guitar":
-									data[trackPos].append(0.5)
-									positiveSamplesBoundary += 0.85
-								elif track == "bass":
-									data[trackPos].append(0.8)
-									positiveSamplesBoundary += 0.75
-								elif track == "sec":
-									data[trackPos].append(0.6)
-									positiveSamplesBoundary += 1
-								else:
-									data[trackPos].append(0.8)
-									positiveSamplesBoundary += 1
-							else:
-								if track == "synth":
-									data[trackPos].append(-0.2)
-								elif track == "guitar":
-									data[trackPos].append(-0.5)
-								elif track == "sec":
-									data[trackPos].append(-0.6)
-								else:
-									data[trackPos].append(-0.8)
-							if track == "bd":
-								t += 1.0 / 20.0
-						else:
-							if track == "synth":
-								data[trackPos].append(-0.2)
-							elif track == "guitar":
-								data[trackPos].append(-0.5)
-							elif track == "sec":
-								data[trackPos].append(-0.6)
-							else:
-								data[trackPos].append(-0.8)
-							periodBoundary += (period+t)
-							positiveSamplesBoundary = 0
+						amplitude = 0.8
+						if track == "synth":
+							amplitude = 0.2
+						elif track == "guitar":
+							amplitude = 0.5
+						elif track == "sec":
+							amplitude = 0.6
+						for n in X(1,9):
+#							h = 2*n-1
+#							temp = freq*h*float(x)
+#							x1 = int(temp)
+#							if temp % 1 == 0:
+#								sampleData += amplitude * sinData[x1 % RATE] / h
+#							else:
+#								x2 = int(temp)+1
+#								y1 = sinData[x1 % RATE]
+#								y2 = sinData[x2 % RATE]
+#								sampleData += amplitude * ((temp-x1)*(y2-y1)+y1) / h
+							sampleData += amplitude*math.sin((twopi*(float(x)/RATE)*freq)*(2*n-1))/(2*n-1)
+						data[trackPos].append(sampleData)
 			if samples > duration:
-				for x in xrange(int(duration), int(samples)):
+				for x in X(int(duration), int(samples)):
 					data[trackPos].append(0.0)
 			notePos += 1
 			patternPos += 1
@@ -443,10 +538,11 @@ lenData = 0
 for x in data:
 	lenData = len(x) if len(x) > lenData else lenData
 
+print "Mixing..."
 with open('badpython.raw', 'w') as f:
-	for x in xrange(lenData):
+	for x in X(lenData):
 		sum = 0.0
-		for y in xrange(len(data)):
+		for y in X(len(data)):
 			try:
 				sum += data[y][x]
 			except IndexError:
@@ -456,7 +552,7 @@ with open('badpython.raw', 'w') as f:
 		f.write(chr(sample))
 
 print "Music OK"
-for DISCARD in xrange(1):
+for DISCARD in X(1):
 	stream.write(songRaw)
 		
 stream.stop_stream()
